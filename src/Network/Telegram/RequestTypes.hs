@@ -56,6 +56,34 @@ instance URLParams SendMessageParams where
             encode' <$> sendMessageReplyMarkup p
         ]
 
+data ChatAction = Typing
+                | UploadPhoto
+                | RecordVideo
+                | UploadVideo
+                | RecordAudio
+                | UploadAudio
+                | UploadDocument
+                | FindLocation
+                deriving Show
+
+data SendChatActionParams = SendChatActionParams
+    { sendChatActionChatId :: Int
+    , sendChatActionAction :: ChatAction
+    } deriving Show
+
+instance URLParams SendChatActionParams where
+    params p = catMaybes
+        [ createParam "chat_id" $ Just $ encode' $ sendChatActionChatId p
+        , createParam "action" $ Just $ f $ sendChatActionAction p
+        ]
+        where f Typing         = "typing"
+              f UploadPhoto    = "upload_photo"
+              f RecordVideo    = "record_video"
+              f UploadVideo    = "upload_video"
+              f RecordAudio    = "record_audio"
+              f UploadAudio    = "upload_audio"
+              f UploadDocument = "upload_document"
+              f FindLocation   = "find_Location"
 
 data Markup = ReplyKeyboardMarkup
     { replyKeyboardMarkupKeyboard :: [[String]]

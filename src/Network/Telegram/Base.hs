@@ -58,6 +58,15 @@ sendMessageURL t p = withToken t $
 sendMessage :: Token -> SendMessageParams -> IO (Maybe (TelegramResponse Message))
 sendMessage t p = makeRequest $ sendMessageURL t p
 
+sendChatActionURL :: Token -> SendChatActionParams -> URL
+sendChatActionURL t p = withToken t $
+    addParams (params p) $
+    addToPath "/sendChatAction" $
+    baseURL
+
+sendChatAction :: Token -> SendChatActionParams -> IO (Maybe (TelegramResponse Bool))
+sendChatAction t p = makeRequest $ sendChatActionURL t p
+
 setWebhookURL :: Token -> String -> URL
 setWebhookURL t s = withToken t $
     addParams [("url", s)] $
