@@ -11,9 +11,11 @@ import Data.Functor
 
 type Token = String
 
+
 class URLParams a where
     params :: a -> [(String, String)]
 
+-- GetUpdates
 data GetUpdatesParams = GetUpdatesParams
     { getUpdatesOffset :: Maybe Int
     , getUpdatesLimit :: Maybe Int
@@ -34,11 +36,13 @@ instance URLParams GetUpdatesParams where
                         , createParam "timeout" $ encode' <$> getUpdatesTimeout p
                         ]
 
+-- SendMessage
 data SendMessageParams = SendMessageParams
     { sendMessageChatId :: Int
     , sendMessageText :: String
-    , sendMessageParseMode :: Maybe String
+    , sendMessageParseMode :: ParseMode
     , sendMessageDisableWebPagePreview :: Maybe Bool
+    , sendMessageDisableNotification :: Maybe Bool
     , sendMessageReplyToMessageId :: Maybe Int
     , sendMessageReplyMarkup :: Maybe Markup
     } deriving Show
@@ -47,25 +51,26 @@ instance URLParams SendMessageParams where
     params p = catMaybes
         [ createParam "chat_id" $ Just $ encode' $ sendMessageChatId p
         , createParam "text" $ Just $ sendMessageText p
-        , createParam "parse_mode" $ sendMessageParseMode p
+        , createParam "parse_mode" $ f $ sendMessageParseMode p
         , createParam "disable_web_page_preview" $
             encode' <$> sendMessageDisableWebPagePreview p
+        , createParam "disable_notification" $
+            encode' <$> sendMessageDisableNotification p
         , createParam "reply_to_message_id" $
             encode' <$> sendMessageReplyToMessageId p
         , createParam "reply_markup" $
             encode' <$> sendMessageReplyMarkup p
         ]
+      where f ParseModeMarkdown = Just "Markdown"
+            f ParseModeHTML = Just "HTML"
+            f ParseModeNormal = Nothing
 
-data ChatAction = Typing
-                | UploadPhoto
-                | RecordVideo
-                | UploadVideo
-                | RecordAudio
-                | UploadAudio
-                | UploadDocument
-                | FindLocation
-                deriving Show
+data ParseMode = ParseModeMarkdown
+               | ParseModeHTML
+               | ParseModeNormal
+               deriving Show
 
+-- SendChatAction
 data SendChatActionParams = SendChatActionParams
     { sendChatActionChatId :: Int
     , sendChatActionAction :: ChatAction
@@ -76,53 +81,56 @@ instance URLParams SendChatActionParams where
         [ createParam "chat_id" $ Just $ encode' $ sendChatActionChatId p
         , createParam "action" $ Just $ f $ sendChatActionAction p
         ]
-        where f Typing         = "typing"
-              f UploadPhoto    = "upload_photo"
-              f RecordVideo    = "record_video"
-              f UploadVideo    = "upload_video"
-              f RecordAudio    = "record_audio"
-              f UploadAudio    = "upload_audio"
-              f UploadDocument = "upload_document"
-              f FindLocation   = "find_Location"
+        where f ChatActionTyping         = "typing"
+              f ChatActionUploadPhoto    = "upload_photo"
+              f ChatActionRecordVideo    = "record_video"
+              f ChatActionUploadVideo    = "upload_video"
+              f ChatActionRecordAudio    = "record_audio"
+              f ChatActionUploadAudio    = "upload_audio"
+              f ChatActionUploadDocument = "upload_document"
+              f ChatActionFindLocation   = "find_Location"
 
+data ChatAction = ChatActionTyping
+                | ChatActionUploadPhoto
+                | ChatActionRecordVideo
+                | ChatActionUploadVideo
+                | ChatActionRecordAudio
+                | ChatActionUploadAudio
+                | ChatActionUploadDocument
+                | ChatActionFindLocation
+                deriving Show
+
+-- ReplyKeyboardMarkup
 data Markup = ReplyKeyboardMarkup
     { replyKeyboardMarkupKeyboard :: [[String]]
-    , replyKeyboardMarkupResizeKeyboard :: Maybe Bool
-    , replyKeyboardMarkupOneTimeKeyboard :: Maybe Bool
-    , replyKeyboardMarkupSelective :: Maybe Bool
-    }                    | ReplyKeyboardHide
-    { replyKeyboardHideHideKeyboard :: Bool
-    , replyKeyboardHideSelective :: Maybe Bool
-    }                    | ForceReply
+    , replyKeyboardMarkupResizeKeyboard :: Bool
+    , replyKeyboardMarkupOneTimeKeyboard :: Bool
+    , replyKeyboardMarkupSelective :: Bool
+    }
+            | ReplyKeyboardRemove
+    { replyKeyboardRemoveHideKeyboard :: Bool
+    , replyKeyboardRemoveSelective :: Bool
+    }
+            | ForceReply
     { forceReplyForceReply :: Bool
-    , forceReplySelective :: Maybe Bool
+    , forceReplySelective :: Bool
     } deriving Show
 
 instance ToJSON Markup where
-    toJSON (ReplyKeyboardMarkup keyboard
-                                resizeKeyboard
-                                oneTimeKeyboard
-                                selective)      = object $ catMaybes $
-                                  Just ("keyboard"           .= keyboard):
-                                  (if isNothing resizeKeyboard then Nothing else
-                                  Just $ "resize_keyboard"   .= resizeKeyboard):
-                                  (if isNothing oneTimeKeyboard then Nothing else
-                                  Just $ "one_time_keyboard" .= oneTimeKeyboard):
-                                  (if isNothing selective then Nothing else
-                                  Just $ "selective"         .= selective):
-                                  []
-    toJSON (ReplyKeyboardHide   hide
-                                selective)     = object $ catMaybes $
-                                  Just ("hide_keyboard" .= hide):
-                                  (if isNothing selective then Nothing else
-                                  Just $ "selective"    .= selective):
-                                  []
-    toJSON (ForceReply          forceReply
-                                selective)     = object $ catMaybes $
-                                  Just ("force_reply" .= forceReply):
-                                  (if isNothing selective then Nothing else
-                                  Just $ "selective"   .= selective):
-                                  []
+    toJSON p@(ReplyKeyboardMarkup _ _ _ _) = object
+       [ "keyboard" .=  replyKeyboardMarkupKeyboard p
+       , "resize_keyboard" .= replyKeyboardMarkupResizeKeyboard p
+       , "one_time_keyboard" .= replyKeyboardMarkupOneTimeKeyboard p
+       , "selective" .= replyKeyboardMarkupSelective p
+       ]
+    toJSON p@(ReplyKeyboardRemove _ _) = object
+       [ "hide_keyboard" .= replyKeyboardRemoveHideKeyboard p
+       , "selective" .= replyKeyboardRemoveSelective p
+       ]
+    toJSON p@(ForceReply _ _) = object
+       [ "force_reply" .= forceReplyForceReply p
+       , "selective" .= forceReplySelective p
+       ]
 
 encode' :: ToJSON a => a -> String
 encode' = toString . encode
