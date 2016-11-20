@@ -17,23 +17,16 @@ class URLParams a where
 
 -- GetUpdates
 data GetUpdatesParams = GetUpdatesParams
-    { getUpdatesOffset :: Maybe Int
-    , getUpdatesLimit :: Maybe Int
-    , getUpdatesTimeout :: Maybe Int
+    { getUpdatesOffset :: Int
+    , getUpdatesLimit :: Int
+    , getUpdatesTimeout :: Int
     } deriving Show
-
-instance Default GetUpdatesParams where
-    def = GetUpdatesParams
-        { getUpdatesOffset = Nothing
-        , getUpdatesLimit = Nothing
-        , getUpdatesTimeout = Nothing
-        }
 
 instance URLParams GetUpdatesParams where
     params p = catMaybes mparams
-        where mparams = [ createParam "offset" $ encode' <$> getUpdatesOffset p
-                        , createParam "limit" $ encode' <$> getUpdatesLimit p
-                        , createParam "timeout" $ encode' <$> getUpdatesTimeout p
+        where mparams = [ createParam "offset" $ Just $ encode' $ getUpdatesOffset p
+                        , createParam "limit" $ Just $ encode' $ getUpdatesLimit p
+                        , createParam "timeout" $ Just $ encode' $ getUpdatesTimeout p
                         ]
 
 -- SendMessage
@@ -41,8 +34,8 @@ data SendMessageParams = SendMessageParams
     { sendMessageChatId :: Int
     , sendMessageText :: String
     , sendMessageParseMode :: ParseMode
-    , sendMessageDisableWebPagePreview :: Maybe Bool
-    , sendMessageDisableNotification :: Maybe Bool
+    , sendMessageDisableWebPagePreview :: Bool
+    , sendMessageDisableNotification :: Bool
     , sendMessageReplyToMessageId :: Maybe Int
     , sendMessageReplyMarkup :: Maybe Markup
     } deriving Show
@@ -52,10 +45,10 @@ instance URLParams SendMessageParams where
         [ createParam "chat_id" $ Just $ encode' $ sendMessageChatId p
         , createParam "text" $ Just $ sendMessageText p
         , createParam "parse_mode" $ f $ sendMessageParseMode p
-        , createParam "disable_web_page_preview" $
-            encode' <$> sendMessageDisableWebPagePreview p
-        , createParam "disable_notification" $
-            encode' <$> sendMessageDisableNotification p
+        , createParam "disable_web_page_preview" $ Just $
+            encode' $ sendMessageDisableWebPagePreview p
+        , createParam "disable_notification" $ Just $
+            encode' $ sendMessageDisableNotification p
         , createParam "reply_to_message_id" $
             encode' <$> sendMessageReplyToMessageId p
         , createParam "reply_markup" $
@@ -101,7 +94,10 @@ data ChatAction = ChatActionTyping
                 deriving Show
 
 -- ReplyKeyboardMarkup
-data Markup = ReplyKeyboardMarkup
+data Markup = InlineKeyboardMarkup
+    { inlineKeyboardMarkupInlineKeyboard :: [[InlineKeyboardButton]]
+    }
+            | ReplyKeyboardMarkup
     { replyKeyboardMarkupKeyboard :: [[String]]
     , replyKeyboardMarkupResizeKeyboard :: Bool
     , replyKeyboardMarkupOneTimeKeyboard :: Bool
@@ -114,9 +110,33 @@ data Markup = ReplyKeyboardMarkup
             | ForceReply
     { forceReplyForceReply :: Bool
     , forceReplySelective :: Bool
-    } deriving Show
+    }
+            deriving Show
+
+data InlineKeyboardButton = InlineKeyboardButtonURL
+    { inlineKeyboardButtonURLText :: String
+    , inlineKeyboardButtonURLURL :: String
+    }
+                          | InlineKeyboardButtonCallback
+    { inlineKeyboardButtonCallbackText :: String
+    , inlineKeyboardButtonCallbackData :: String
+    }
+                          deriving Show
+
+instance ToJSON InlineKeyboardButton where
+    toJSON p@(InlineKeyboardButtonURL _ _) = object
+       [ "text" .= inlineKeyboardButtonURLText p
+       , "url" .= inlineKeyboardButtonURLURL p
+       ]
+    toJSON p@(InlineKeyboardButtonCallback _ _) = object
+       [ "text" .= inlineKeyboardButtonCallbackText p
+       , "callback_data" .= inlineKeyboardButtonCallbackData p
+       ]
 
 instance ToJSON Markup where
+    toJSON p@(InlineKeyboardMarkup _) = object
+       [ "inline_keyboard" .= inlineKeyboardMarkupInlineKeyboard p
+       ]
     toJSON p@(ReplyKeyboardMarkup _ _ _ _) = object
        [ "keyboard" .=  replyKeyboardMarkupKeyboard p
        , "resize_keyboard" .= replyKeyboardMarkupResizeKeyboard p
